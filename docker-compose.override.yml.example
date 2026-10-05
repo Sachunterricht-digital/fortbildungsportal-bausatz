@@ -1,0 +1,26 @@
+# Beispiel für den Betrieb auf einem eigenen Server mit Caddy (HTTPS über Let's Encrypt).
+# Auf dem Server nach docker-compose.override.yml kopieren, Caddyfile anpassen.
+# Image wird auf dem Server selbst gebaut, die App ist nur lokal erreichbar,
+# nach außen spricht ausschließlich Caddy.
+services:
+  app:
+    image: fortbildungsportal:local
+    ports: !override
+      - "127.0.0.1:3001:3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydaten:/data
+      - caddyconfig:/config
+
+volumes:
+  caddydaten:
+  caddyconfig:

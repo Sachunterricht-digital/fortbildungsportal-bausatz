@@ -1,0 +1,53 @@
+export const profil = {
+  ueberschrift: "Profil",
+  hinweis: "Pflicht sind Name, Stammschule und Funktion. Alles andere ist freiwillig.",
+  vorname: "Vorname",
+  nachname: "Nachname",
+  stammschule: "Stammschule",
+  funktion: "Funktion",
+  telefon: "Telefon",
+  telefonHinweis: "Nur intern sichtbar.",
+  schwerpunkte: "Schwerpunkte",
+  schwerpunkteHinweis: "Drei bis fünf Stichworte, mit Komma getrennt, zum Beispiel: iPad, KI, TaskCards.",
+  schwerpunkteZuLang: "Bitte kürzer fassen (höchstens 200 Zeichen).",
+  kurzprofil: "Kurzprofil",
+  kurzprofilHinweis: "Ein paar Sätze zu Schwerpunkten und Themen.",
+  speichern: "Profil speichern",
+  /** Referenten: Speichern stellt das Profil sofort online (festgelegt am 05.10.2026). */
+  speichernUndVeroeffentlichen: "Speichern und veröffentlichen",
+  veroeffentlichtHinweis:
+    "Das Profil erscheint sofort im Teambereich der Webseite und lässt sich jederzeit ändern und ergänzen.",
+  speichert: "Wird gespeichert …",
+  gespeichert: "Profil gespeichert.",
+  vornameFehlt: "Bitte den Vornamen angeben.",
+  nachnameFehlt: "Bitte den Nachnamen angeben.",
+  stammschuleFehlt: "Bitte die Stammschule angeben.",
+  funktionFehlt: "Bitte eine Funktion wählen.",
+  telefonZuLang: "Die Telefonnummer ist zu lang, höchstens 40 Zeichen.",
+  kurzprofilZuLang: "Das Kurzprofil ist zu lang (höchstens 1000 Zeichen).",
+  unvollstaendig: "Profil ist noch unvollständig.",
+  vervollstaendigen: "Profil ergänzen",
+
+  foto: "Profilfoto",
+  fotoHinweis:
+    "Das Bild erscheint im Teambereich der Webseite. Höchstens 5 MB. Die Datei wird auf 512 Pixel verkleinert, Metadaten werden entfernt.",
+  fotoHinweisAdmin:
+    "Das Bild erscheint öffentlich nur, wenn „Öffentlich sichtbar“ gesetzt ist. Höchstens 5 MB. Die Datei wird auf 512 Pixel verkleinert, Metadaten werden entfernt.",
+  fotoNochNichtGespeichert: "Noch nicht gespeichert, bitte „Foto speichern“ klicken.",
+  fotoOffenBeimProfil: "Das gewählte Foto ist noch nicht gespeichert. Bitte oben „Foto speichern“ klicken.",
+  fotoOhneBild: "Kein Foto hinterlegt",
+  fotoAuswaehlen: "Foto speichern",
+  fotoSpeichertGerade: "Wird hochgeladen …",
+  fotoEntfernen: "Foto entfernen",
+  fotoEntferntGerade: "Wird entfernt …",
+  fotoGespeichert: "Foto gespeichert.",
+  fotoGeloescht: "Foto entfernt.",
+  fotoZuerstProfilSpeichern:
+    "Bitte zuerst das Profil oben speichern. Danach lässt sich ein Foto hochladen.",
+  fotoKeineDatei: "Bitte eine Datei auswählen.",
+  fotoFalscherTyp: "Nur JPEG, PNG, WebP oder GIF sind erlaubt.",
+  fotoHeic:
+    "iPhone-Fotos im HEIC-Format bitte vorher als JPEG sichern, zum Beispiel per Bildschirmfoto oder Teilen als JPEG.",
+  fotoZuGross: "Die Datei ist zu groß (höchstens 5 MB).",
+  fotoUnlesbar: "Die Datei lässt sich nicht als Bild lesen. Bitte ein anderes Foto wählen.",
+} as const;

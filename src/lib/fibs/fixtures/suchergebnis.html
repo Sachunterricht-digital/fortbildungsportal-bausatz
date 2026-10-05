@@ -1,0 +1,63 @@
+<!--
+  Beispiel-Suchergebnisseite für den FIBS-Import.
+
+  Das ist KEIN Abzug einer echten FIBS-Seite, sondern eine nachgebaute
+  Struktur, damit sich Parser, Mapping und Abgleich ohne Zugriff auf FIBS
+  durchspielen lassen. Solange FIBS_IMPORT_ENABLED=false gesetzt ist, liest
+  der Importer diese Datei.
+
+  Zum Anpassen an die echte Seite:
+    1. Eine echte Suchergebnisseite speichern und diese Datei ersetzen.
+    2. Die Selektoren in ../parser.ts anpassen.
+    3. Trockenlauf unter /admin/import starten und die Vorschau prüfen.
+-->
+<html lang="de">
+  <body>
+    <ul class="ergebnisliste">
+      <li class="lehrgang-treffer" data-lehrgang="1">
+        <span class="lehrgangsnummer">E123-4/26/1</span>
+        <h3 class="lehrgang-titel">
+          Künstliche Intelligenz im Grundschulunterricht
+        </h3>
+        <p class="lehrgang-beschreibung">
+          Einführung in den unterrichtlichen Einsatz von KI-Werkzeugen:
+          rechtliche Rahmenbedingungen, geeignete Anwendungen und konkrete
+          Unterrichtsbeispiele für die Jahrgangsstufen 3 und 4.
+        </p>
+        <span class="lehrgang-beginn">15.10.2026 14:00</span>
+        <span class="lehrgang-ende">15.10.2026 17:00</span>
+        <span class="lehrgang-ort">Grundschule Ottobeuren</span>
+        <span class="lehrgang-format">Präsenz</span>
+        <span class="lehrgang-maxtn">20</span>
+        <span class="lehrgang-zielgruppe">Lehrkräfte an Grundschulen</span>
+        <a class="titel" href="/lehrgang/E123-4-26-1">Details</a>
+      </li>
+
+      <li class="lehrgang-treffer" data-lehrgang="2">
+        <span class="lehrgangsnummer">E123-4/26/2</span>
+        <h3 class="lehrgang-titel">iPad-Grundlagen für Einsteigerinnen und Einsteiger</h3>
+        <p class="lehrgang-beschreibung">
+          Bedienung, Klassenverwaltung und erste Unterrichtsszenarien mit dem
+          iPad. Eigene Geräte können mitgebracht werden.
+        </p>
+        <span class="lehrgang-beginn">05.11.2026 15:00</span>
+        <span class="lehrgang-ende">05.11.2026 17:30</span>
+        <span class="lehrgang-ort">Online</span>
+        <span class="lehrgang-format">eSession</span>
+        <span class="lehrgang-maxtn">45</span>
+        <span class="lehrgang-zielgruppe">Grund- und Mittelschule</span>
+        <a class="titel" href="/lehrgang/E123-4-26-2">Details</a>
+      </li>
+
+      <!-- Absichtlich unvollständig: prüft, dass der Import solche Datensätze
+           übergeht statt zu scheitern. -->
+      <li class="lehrgang-treffer" data-lehrgang="3">
+        <span class="lehrgangsnummer">E123-4/26/3</span>
+        <h3 class="lehrgang-titel">Medienkonzept fortschreiben</h3>
+        <span class="lehrgang-beginn">Termin wird noch bekanntgegeben</span>
+        <span class="lehrgang-ort">Staatliches Schulamt Memmingen-Unterallgäu</span>
+        <span class="lehrgang-zielgruppe">Schulleitungen</span>
+      </li>
+    </ul>
+  </body>
+</html>

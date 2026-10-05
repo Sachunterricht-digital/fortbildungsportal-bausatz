@@ -1,0 +1,19 @@
+# Testinstanz auf einem eigenen Server, getrennt von der echten Seite.
+#
+# Eigenes Compose-Projekt (COMPOSE_PROJECT_NAME=fortbildung-test in der .env),
+# damit Datenbank, Volumes und Netz eigene sind. Kein Caddy, kein Port nach
+# außen: Die Instanz ist nur über einen SSH-Tunnel erreichbar
+# (`ssh -L 3101:127.0.0.1:3101 testserver`, dann http://localhost:3101).
+#
+# Aufruf auf dem Server:
+#   cd /opt/fortbildung-test
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+services:
+  app:
+    image: fortbildung-test:local
+    build:
+      context: .
+    ports: !override
+      - "127.0.0.1:3101:3000"
+    environment:
+      RETENTION_SCHEDULER: "off"

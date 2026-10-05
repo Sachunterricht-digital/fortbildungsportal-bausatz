@@ -1,0 +1,5 @@
+# Beispiel, Domain durch die eigene ersetzen (siehe docker-compose.override.yml.example)
+fortbildung.example.org {
+	encode gzip
+	reverse_proxy app:3000
+}

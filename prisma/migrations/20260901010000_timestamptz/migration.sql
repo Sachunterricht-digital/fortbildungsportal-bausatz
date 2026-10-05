@@ -1,0 +1,40 @@
+-- Bestehende Zeitwerte wurden von Prisma als UTC in TIMESTAMP(3)-Spalten
+-- geschrieben. `AT TIME ZONE 'UTC'` bewahrt beim Typwechsel exakt denselben
+-- Zeitpunkt und verhindert eine Abhängigkeit von der Server-Zeitzone.
+
+ALTER TABLE "User"
+  ALTER COLUMN "lastLoginAt" TYPE TIMESTAMPTZ(3) USING "lastLoginAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "Zugangstoken"
+  ALTER COLUMN "expiresAt" TYPE TIMESTAMPTZ(3) USING "expiresAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "usedAt" TYPE TIMESTAMPTZ(3) USING "usedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "Fortbildung"
+  ALTER COLUMN "beginn" TYPE TIMESTAMPTZ(3) USING "beginn" AT TIME ZONE 'UTC',
+  ALTER COLUMN "ende" TYPE TIMESTAMPTZ(3) USING "ende" AT TIME ZONE 'UTC',
+  ALTER COLUMN "fibsEingetragenAm" TYPE TIMESTAMPTZ(3) USING "fibsEingetragenAm" AT TIME ZONE 'UTC',
+  ALTER COLUMN "tnGemeldetAm" TYPE TIMESTAMPTZ(3) USING "tnGemeldetAm" AT TIME ZONE 'UTC',
+  ALTER COLUMN "eingereichtAm" TYPE TIMESTAMPTZ(3) USING "eingereichtAm" AT TIME ZONE 'UTC',
+  ALTER COLUMN "freigegebenAm" TYPE TIMESTAMPTZ(3) USING "freigegebenAm" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "Schlagwort"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "Referent"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "FibsImportJob"
+  ALTER COLUMN "startedAt" TYPE TIMESTAMPTZ(3) USING "startedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "finishedAt" TYPE TIMESTAMPTZ(3) USING "finishedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "AuditLog"
+  ALTER COLUMN "at" TYPE TIMESTAMPTZ(3) USING "at" AT TIME ZONE 'UTC';
+
+ALTER TABLE "SystemSetting"
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';

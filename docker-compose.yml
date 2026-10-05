@@ -1,0 +1,58 @@
+# Betrieb auf dem Server. Für die lokale Entwicklung reicht ein Postgres auf
+# dem Rechner (siehe README) — dann wird nur der Dienst "db" gebraucht.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fortbildungen_uamm
+      POSTGRES_USER: fortbildungen
+      # Wert in der .env setzen, nicht hier eintragen.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in der .env}
+    volumes:
+      - pgdaten:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortbildungen -d fortbildungen_uamm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Kein Port nach außen: Die Datenbank ist nur im Docker-Netz erreichbar.
+
+  app:
+    # Standard: lokal gebautes Image (`docker compose up --build`). Wer ein
+    # Image aus einer Registry ziehen möchte, setzt APP_IMAGE in der .env.
+    image: ${APP_IMAGE:-fortbildungsportal:local}
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fortbildungen:${POSTGRES_PASSWORD}@db:5432/fortbildungen_uamm?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET fehlt in der .env}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL fehlt in der .env}
+      FIBS_IMPORT_ENABLED: ${FIBS_IMPORT_ENABLED:-false}
+      FIBS_BASE_URL: ${FIBS_BASE_URL:-https://fibs.alp.dillingen.de}
+      FIBS_USER_AGENT_CONTACT: ${FIBS_USER_AGENT_CONTACT:-}
+      RETENTION_SCHEDULER: ${RETENTION_SCHEDULER:-on}
+      CRON_SECRET: ${CRON_SECRET:-}
+      UPLOAD_DIR: /app/uploads
+      # Mailversand: ohne SMTP_HOST landen Mails nur im Log (Testinstanz)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_BCC: ${MAIL_BCC:-}
+      NODE_ENV: production
+    ports:
+      # Host-Port 3001 ist für einen Reverse Proxy erreichbar; intern bleibt Port 3000.
+      - "3001:3000"
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  pgdaten:
+  uploads:

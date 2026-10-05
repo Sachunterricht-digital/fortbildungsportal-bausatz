@@ -1,0 +1,31 @@
+# Abhängigkeiten
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Produktion
+/build
+
+# Umgebung — enthält Geheimnisse, gehört NIE ins Repository
+.env
+.env*.local
+
+# Betriebssystem und Editor
+.DS_Store
+*.pem
+.vscode/
+.idea/
+
+# Protokolle
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+scripts/e2e/bilder/
+scripts/archiv-export/

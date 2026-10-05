@@ -1,0 +1,218 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-schilf: var(--schilf);
+  --color-schilf-weich: var(--schilf-weich);
+  --color-regional: var(--regional);
+  --color-regional-weich: var(--regional-weich);
+  --color-alp: var(--alp);
+  --color-alp-weich: var(--alp-weich);
+  --color-ferien: var(--ferien);
+  --color-ferien-weich: var(--ferien-weich);
+  --color-feiertag: var(--feiertag);
+  --color-feiertag-weich: var(--feiertag-weich);
+  --color-marke-gelb: var(--marke-gelb);
+  --color-marke-gelb-weich: var(--marke-gelb-weich);
+  --font-sans: var(--font-lexend);
+  --font-mono: var(--font-plex-mono);
+  --font-heading: var(--font-poppins);
+  --radius-sm: calc(var(--radius) * 0.65);
+  --radius-md: calc(var(--radius) * 0.82);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.7);
+}
+
+/* Ab dieser Breite passt der Kopf der öffentlichen Seiten in eine Zeile
+   (Marke, vier Punkte und der Knopf brauchen etwa 905 px). Darunter, also am
+   Handy und am iPad hochkant, rutscht die Navigation in eine zweite Zeile:
+   `max-kopf:` und `kopf:` in `src/app/(public)/layout.tsx` und `NavLink.tsx`. */
+@theme {
+  --breakpoint-kopf: 57.5rem;
+}
+
+:root {
+  /* Markenlayer M1 Papier & Pixel: Petrol #2a5970, Gelb #f4c20d. */
+  --background: #f6f7f8;
+  --foreground: #1f2d33;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --primary: #2a5970;
+  --primary-foreground: #ffffff;
+  --secondary: #eaf0f3;
+  --secondary-foreground: #24485b;
+  --muted: #eff3f5;
+  --muted-foreground: #63767f;
+  --accent: #e3ecf1;
+  --accent-foreground: #2a5970;
+  /* Gelb bleibt sparsam: Kanten, Chips, aktive Zustände. Nie als Überschrift. */
+  --marke-gelb: #f4c20d;
+  --marke-gelb-weich: #fdf3cf;
+  --destructive: oklch(0.5 0.17 30);
+  --border: #dbe3e7;
+  --input: #c6d4da;
+  --ring: #2a5970;
+  --radius: 0.625rem;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Fachliche Farbzuordnungen: bewusst unabhängig vom Oberflächendesign. */
+  --schilf: oklch(0.38 0.11 258);
+  --schilf-weich: oklch(0.93 0.035 258);
+  --regional: oklch(0.5 0.17 30);
+  --regional-weich: oklch(0.94 0.04 35);
+  --alp: oklch(0.53 0.115 75);
+  --alp-weich: oklch(0.94 0.05 82);
+  --ferien: oklch(0.55 0.13 75);
+  --ferien-weich: oklch(0.95 0.045 82);
+  --feiertag: oklch(0.5 0.17 30);
+  --feiertag-weich: oklch(0.95 0.035 32);
+}
+
+.dark {
+  --background: #17242a;
+  --foreground: #eef3f0;
+  --card: #203238;
+  --card-foreground: var(--foreground);
+  --popover: #203238;
+  --popover-foreground: var(--foreground);
+  --primary: #9dc3d2;
+  --primary-foreground: #14303d;
+  --secondary: #2a3d42;
+  --secondary-foreground: var(--foreground);
+  --muted: #293b40;
+  --muted-foreground: #b7c4c3;
+  --accent: #354d45;
+  --accent-foreground: #eff5ef;
+  --destructive: oklch(0.66 0.17 30);
+  --border: rgb(255 255 255 / 14%);
+  --input: rgb(255 255 255 / 20%);
+  --ring: #9dc3d2;
+  --marke-gelb: #f4c20d;
+  --marke-gelb-weich: #3a3320;
+  --sidebar: #1d2e34;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --schilf: oklch(0.72 0.12 255);
+  --schilf-weich: oklch(0.29 0.05 258);
+  --regional: oklch(0.68 0.16 32);
+  --regional-weich: oklch(0.29 0.06 32);
+  --alp: oklch(0.76 0.12 80);
+  --alp-weich: oklch(0.3 0.055 80);
+  --ferien: oklch(0.78 0.12 78);
+  --ferien-weich: oklch(0.29 0.05 80);
+  --feiertag: oklch(0.68 0.16 30);
+  --feiertag-weich: oklch(0.29 0.05 30);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { @apply font-sans; scroll-padding-top: 1.5rem; }
+  /* H2 aus der Bestellung: Hauptüberschrift in Petrol, Zwischenüberschriften
+     in Tinte. Gelb trägt nie eine Überschrift. */
+  h1, h2, h3 { font-family: var(--font-heading); letter-spacing: -0.015em; }
+  h1 { color: var(--primary); }
+  body { @apply bg-background text-foreground; }
+  ::selection { background: color-mix(in oklch, var(--accent) 80%, white); color: var(--foreground); }
+}
+
+.rauten { background-image: repeating-linear-gradient(45deg, color-mix(in oklch, var(--primary) 10%, transparent) 0 1px, transparent 1px 26px), repeating-linear-gradient(-45deg, color-mix(in oklch, var(--primary) 10%, transparent) 0 1px, transparent 1px 26px); }
+.etikett { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.045em; line-height: 1.25; }
+.zahl { font-variant-numeric: tabular-nums; letter-spacing: -0.015em; }
+.zeile { transition: background-color 140ms ease, border-color 140ms ease; }
+.anmeldestatus { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid currentColor; border-radius: 0.375rem; font-size: 0.75rem; line-height: 1.25; }
+.anmeldestatus-offen { color: oklch(0.38 0.11 150); background: oklch(0.95 0.04 150); }
+.anmeldestatus-hinweis { color: oklch(0.43 0.09 75); background: var(--ferien-weich); }
+.anmeldestatus-folgt { color: var(--muted-foreground); background: var(--muted); }
+.anmeldestatus:not(.flex) { padding: 0.28rem 0.45rem; white-space: nowrap; }
+.editorial-kante { position: relative; }
+.editorial-kante::before { position: absolute; top: 0; bottom: 0; left: 0; width: 0.25rem; content: ""; background: linear-gradient(to bottom, var(--schilf), var(--regional), var(--alp)); }
+
+@media (prefers-reduced-motion: reduce) { .zeile { transition: none; } }
+
+/* Darstellung der WYSIWYG-Beschreibung im Frontend. */
+.beschreibung { line-height: 1.7; }
+.beschreibung > * + * { margin-top: 0.85em; }
+.beschreibung h2 { font-size: 1.0625rem; font-weight: 700; margin-top: 1.6em; letter-spacing: -0.01em; }
+.beschreibung h3, .beschreibung h4 { font-size: 1rem; font-weight: 600; margin-top: 1.3em; }
+.beschreibung ul, .beschreibung ol { padding-left: 1.4rem; }
+.beschreibung ul { list-style: square; }
+.beschreibung ol { list-style: decimal; }
+.beschreibung li + li { margin-top: 0.3em; }
+.beschreibung a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.beschreibung blockquote { border-left: 3px solid var(--primary); padding-left: 1rem; color: var(--muted-foreground); }
+.beschreibung code { font-family: var(--font-mono); font-size: 0.875em; background: var(--muted); padding: 0.1em 0.35em; }
+/* Auswertungsbogen: Tabellen bleiben auch ohne JavaScript lesbar. */
+.auswertung-tabelle th,
+.auswertung-tabelle td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.auswertung-tabelle thead th {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+.auswertung-tabelle :is(th, td):not(.text-left) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.auswertung-tabelle tbody tr:last-child > * { border-bottom: 0; }
+@media print {
+  @page auswertungsbogen { size: A4 landscape; margin: 12mm; }
+  body:has(.auswertung) #admin-navigation,
+  body:has(.auswertung) a[href="#hauptinhalt"],
+  body:has(.auswertung) .lg\:hidden { display: none !important; }
+  body:has(.auswertung) #hauptinhalt { display: block !important; padding: 0; }
+  body:has(.auswertung) { background: white; color: black; }
+  .auswertung { page: auswertungsbogen; font-size: 10pt; }
+  .auswertung-tabelle { font-size: 9pt; }
+  .auswertung-tabelle th, .auswertung-tabelle td { padding: 0.4rem; }
+  .auswertung-tabelle tr { break-inside: avoid; }
+  .auswertung h2 { break-after: avoid; }
+  .auswertung a { text-decoration: none; }
+}

@@ -1,0 +1,504 @@
+// Datenmodell Fortbildungs-Tool Schulamt Memmingen-Unterallgäu (UAMM)
+//
+// Konvention: Für aufzählbare Werte werden bewusst KEINE Prisma-Enums benutzt,
+// sondern String-Felder mit einem Kommentar über die erlaubten Werte. Die
+// Durchsetzung passiert zentral in den zod-Schemata unter src/lib/validation.
+// Grund: Ein neuer Wert (z. B. eine weitere Schulart) ist dann eine
+// Code-Änderung statt einer Datenbank-Migration.
+//
+// Die Konstanten dazu liegen in src/constants/ — dort und nur dort werden
+// Werte gepflegt.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Redaktion / Zugang
+// ---------------------------------------------------------------------------
+
+model User {
+  id String @id @default(uuid())
+
+  email          String    @unique
+  /// Leer, solange der Zugang eingerichtet, aber noch kein Passwort gesetzt
+  /// wurde. Eine Anmeldung ist dann nicht möglich.
+  passwordHash   String?
+  name           String?
+  role           String // ADMIN | REDAKTEUR | REFERENT
+  isActive       Boolean   @default(true)
+  /// Wird bei einem Passwortwechsel erhöht. JWTs mit einer älteren Version
+  /// verlieren dadurch beim nächsten serverseitigen Zugriff ihre Gültigkeit.
+  sessionVersion Int       @default(0)
+  lastLoginAt    DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  fortbildungen                       Fortbildung[]                  @relation("Ersteller")
+  tnMeldungen                         Fortbildung[]                  @relation("TnMeldung")
+  teilnahmebestaetigungenReferenten   Fortbildung[]                  @relation("TeilnahmebestaetigungReferenten")
+  teilnahmebestaetigungenTeilnehmende Fortbildung[]                  @relation("TeilnahmebestaetigungTeilnehmende")
+  freigaben                           Fortbildung[]                  @relation("Freigabe")
+  fibsEintraege                       Fortbildung[]                  @relation("FibsEintrag")
+  auditLogs                           AuditLog[]
+  zugangstoken                        Zugangstoken[]
+  referentenRegistrierungslinks       ReferentenRegistrierungslink[] @relation("RegistrierungslinkErsteller")
+  /// Gesetzt, wenn dieses Konto zu einer Referentin oder einem Referenten gehört
+  referent                            Referent?
+  umfragen                            Umfrage[]
+}
+
+/// Einmal-Token für das Einrichten eines Zugangs und für das Zurücksetzen
+/// eines Passworts.
+///
+/// Es wird nur der Hash gespeichert — wer die Datenbank liest, kann damit
+/// keinen fremden Zugang übernehmen.
+model Zugangstoken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  zweck     String // EINLADUNG | PASSWORT_RESET
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Wiederverwendbarer, zeitlich begrenzter Link für die Selbstregistrierung
+/// von Referentinnen und Referenten. Der Link selbst wird nie gespeichert;
+/// `tokenHash` ist ein SHA-256-Hash des zufällig erzeugten Tokens.
+model ReferentenRegistrierungslink {
+  id              String    @id @default(uuid())
+  tokenHash       String    @unique
+  expiresAt       DateTime  @db.Timestamptz(3)
+  aktiv           Boolean   @default(true)
+  nutzungen       Int       @default(0)
+  maxNutzungen    Int       @default(25)
+  letzteNutzungAm DateTime? @db.Timestamptz(3)
+  erstelltVonId   String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  erstelltVon User? @relation("RegistrierungslinkErsteller", fields: [erstelltVonId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([aktiv, expiresAt])
+  @@index([erstelltVonId])
+}
+
+// ---------------------------------------------------------------------------
+// Fortbildungen
+// ---------------------------------------------------------------------------
+
+model Fortbildung {
+  id   String @id @default(uuid())
+  /// Sprechende, stabile URL: "medienkonzept-erstellen-2026-09-15-a1b2"
+  slug String @unique
+
+  // --- Felder der Eingabemaske (FIBS-Feldlogik) ---
+  titel            String
+  kurztitel        String?
+  /// Sanitisiertes HTML aus dem WYSIWYG-Editor (Allowlist in src/lib/sanitize.ts)
+  beschreibungHtml String  @db.Text
+  /// Aus dem HTML abgeleiteter Klartext — ausschließlich für die Volltextsuche
+  beschreibungText String  @db.Text
+
+  organisationsform String // SCHILF | REGIONAL (= RLFB) | ALP
+  /// Geplante Höchstzahl an Teilnehmenden. Leer bei SchiLf auf Abruf
+  maxTn             Int?
+  format            String // PRAESENZ | ESESSION | MICRO_SCHILF | VIDEO_TUTORIAL
+
+  /// Immer als UTC gespeichert, immer in Europe/Berlin angezeigt.
+  /// Leer bei SchiLf auf Abruf und Video-Tutorials (siehe terminOptional())
+  beginn DateTime? @db.Timestamptz(3)
+  ende   DateTime? @db.Timestamptz(3)
+
+  /// Historisch: fester Veranstaltungsort aus dem Katalog. Bleibt für FIBS-Import
+  /// und Archiv erhalten, die Maske schreibt hier seit dem Freitext-Ort nichts
+  /// Neues mehr hinein — siehe ortText.
+  veranstaltungsortId String?
+  /// Ort als freier Text ("GS Musterdorf, Raum 12", "online"). Bei SchiLf und
+  /// Video-Tutorial freiwillig (terminOptional()), sonst Pflicht. Ersetzt die
+  /// feste Ortsliste: SchiLf vereinbaren Schule und Referent individuell, bei
+  /// RLFB ist FIBS maßgeblich. Anzeige fällt auf veranstaltungsort zurück,
+  /// wenn leer (siehe ortAnzeige() in src/constants/fortbildung.ts).
+  ortText             String?
+  /// Mehrfachauswahl, z. B. ["GRUNDSCHULE", "MITTELSCHULE"]
+  schularten          String[]
+  fach                String?
+
+  // --- DigCompEdu Bavaria ---
+  niveaustufe String? // NIVEAU_I_II | NIVEAU_III_IV | NIVEAU_V_VI
+
+  // --- FIBS-Anbindung ---
+  fibsLehrgangsnummer  String?
+  fibsUrl              String?
+  /// Ist die Fortbildung tatsächlich in FIBS ausgeschrieben? Bewusst ein
+  /// eigenes Feld und nicht aus der Lehrgangsnummer abgeleitet: Eine Nummer
+  /// kann vorgemerkt sein, bevor der Eintrag in FIBS wirklich steht.
+  inFibs               Boolean   @default(false)
+  fibsEingetragenAm    DateTime? @db.Timestamptz(3)
+  fibsEingetragenVonId String?
+  quelle               String    @default("MANUELL") // MANUELL | FIBS_IMPORT
+  /// Fremdschlüssel der Quelle, dient dem Deduplizieren beim Import
+  externalId           String?   @unique
+
+  // --- Nachbereitung ---
+  /// Tatsächliche Teilnehmerzahl, nach der Veranstaltung gemeldet.
+  /// null bedeutet "noch nicht gemeldet", 0 bedeutet "niemand da gewesen".
+  tnTatsaechlich                                   Int?
+  tnGemeldetAm                                     DateTime? @db.Timestamptz(3)
+  tnGemeldetVonId                                  String?
+  /// Freitext der meldenden Person, z. B. "zwei kurzfristige Absagen"
+  tnBemerkung                                      String?
+  /// Bestätigung der Administration: Teilnahmebestätigungen wurden in FIBS
+  /// für die Referierenden versandt. Es werden keine einzelnen Empfänger oder
+  /// FIBS-Nachrichten gespeichert.
+  teilnahmebestaetigungenReferentenVersandtAm      DateTime? @db.Timestamptz(3)
+  teilnahmebestaetigungenReferentenVersandtVonId   String?
+  /// Bestätigung der Administration: Teilnahmebestätigungen wurden in FIBS
+  /// für die Teilnehmenden versandt. Es werden keine Teilnehmerdaten geführt.
+  teilnahmebestaetigungenTeilnehmendeVersandtAm    DateTime? @db.Timestamptz(3)
+  teilnahmebestaetigungenTeilnehmendeVersandtVonId String?
+
+  // --- Freigabe ---
+  /// ENTWURF | EINGEREICHT | VEROEFFENTLICHT | ABGESAGT | ARCHIVIERT
+  ///
+  /// EINGEREICHT liegt zwischen Entwurf und Veröffentlichung: Referentinnen
+  /// und Referenten reichen dorthin ein, die Administration gibt frei. Öffentlich
+  /// sichtbar sind weiterhin nur VEROEFFENTLICHT und ABGESAGT.
+  status           String    @default("ENTWURF")
+  eingereichtAm    DateTime? @db.Timestamptz(3)
+  freigegebenAm    DateTime? @db.Timestamptz(3)
+  freigegebenVonId String?
+  /// Begründung bei einer Zurückweisung — die einreichende Person soll
+  /// erfahren, was noch fehlt.
+  freigabeNotiz    String?
+
+  createdById String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  veranstaltungsort                              Veranstaltungsort?      @relation(fields: [veranstaltungsortId], references: [id], onDelete: Restrict)
+  ersteller                                      User?                   @relation("Ersteller", fields: [createdById], references: [id], onDelete: SetNull)
+  tnGemeldetVon                                  User?                   @relation("TnMeldung", fields: [tnGemeldetVonId], references: [id], onDelete: SetNull)
+  teilnahmebestaetigungenReferentenVersandtVon   User?                   @relation("TeilnahmebestaetigungReferenten", fields: [teilnahmebestaetigungenReferentenVersandtVonId], references: [id], onDelete: SetNull)
+  teilnahmebestaetigungenTeilnehmendeVersandtVon User?                   @relation("TeilnahmebestaetigungTeilnehmende", fields: [teilnahmebestaetigungenTeilnehmendeVersandtVonId], references: [id], onDelete: SetNull)
+  freigegebenVon                                 User?                   @relation("Freigabe", fields: [freigegebenVonId], references: [id], onDelete: SetNull)
+  fibsEingetragenVon                             User?                   @relation("FibsEintrag", fields: [fibsEingetragenVonId], references: [id], onDelete: SetNull)
+  schlagworte                                    FortbildungSchlagwort[]
+  kompetenzen                                    FortbildungKompetenz[]
+  referenten                                     FortbildungReferent[]
+
+  @@index([beginn])
+  @@index([status, beginn])
+  @@index([organisationsform])
+  @@index([veranstaltungsortId])
+  @@index([teilnahmebestaetigungenReferentenVersandtAm])
+  @@index([teilnahmebestaetigungenTeilnehmendeVersandtAm])
+  @@index([schularten], type: Gin)
+}
+
+model Veranstaltungsort {
+  id          String  @id @default(uuid())
+  name        String
+  ort         String?
+  strasse     String?
+  /// Amtliche Schulnummer, sofern bekannt
+  schulnummer String?
+  /// Genau ein Datensatz ("Online") trägt hier true — Pflicht für eSessions
+  istOnline   Boolean @default(false)
+  aktiv       Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  fortbildungen Fortbildung[]
+
+  @@unique([name, ort])
+}
+
+// ---------------------------------------------------------------------------
+// Schlagworte
+// ---------------------------------------------------------------------------
+
+model Schlagwort {
+  id String @id @default(uuid())
+
+  name           String   @unique
+  /// Such- und Eindeutigkeitsschlüssel: klein geschrieben, ohne führende,
+  /// nachlaufende oder mehrfache Leerzeichen. Die sichtbare Schreibweise bleibt
+  /// in `name` erhalten, damit vorgeschlagene Schlagworte konsistent wirken.
+  normalisiert   String   @unique
+  /// "UAMM" und "Medienteam-UAMM": werden jeder Fortbildung automatisch
+  /// angehängt und lassen sich im Formular nicht abwählen.
+  istPflicht     Boolean  @default(false)
+  /// Steuert, mit welchen Begriffen der FIBS-Import sucht (src/lib/fibs)
+  fuerFibsImport Boolean  @default(false)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  fortbildungen FortbildungSchlagwort[]
+}
+
+model FortbildungSchlagwort {
+  fortbildungId String
+  schlagwortId  String
+
+  fortbildung Fortbildung @relation(fields: [fortbildungId], references: [id], onDelete: Cascade)
+  schlagwort  Schlagwort  @relation(fields: [schlagwortId], references: [id], onDelete: Cascade)
+
+  @@id([fortbildungId, schlagwortId])
+  @@index([schlagwortId])
+}
+
+// ---------------------------------------------------------------------------
+// DigCompEdu Bavaria
+// ---------------------------------------------------------------------------
+
+/// Der Kompetenzrahmen als selbstreferenzierender Baum:
+///   code "3"   = Kompetenzbereich  (parentCode = null)
+///   code "3.2" = Unterkompetenz    (parentCode = "3")
+/// Titel und Struktur liegen damit an genau einer Stelle. Aktualisiert Bayern
+/// den Rahmen, ist das ein Seed-Update statt eines Massen-Updates auf allen
+/// Fortbildungen (wie es bei JSON-Feldern nötig wäre).
+model DigCompKompetenz {
+  code           String  @id
+  parentCode     String?
+  titel          String
+  /// Kurzbeschreibung für Tooltips im Formular
+  beschreibung   String?
+  sortOrder      Int
+  aktiv          Boolean @default(true)
+  /// Markiert die im Rahmen noch nicht final ausformulierten Platzhalter
+  istPlatzhalter Boolean @default(false)
+
+  parent   DigCompKompetenz?  @relation("Kompetenzbaum", fields: [parentCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
+  children DigCompKompetenz[] @relation("Kompetenzbaum")
+
+  fortbildungen FortbildungKompetenz[]
+
+  @@index([parentCode, sortOrder])
+}
+
+model FortbildungKompetenz {
+  fortbildungId String
+  kompetenzCode String
+
+  fortbildung Fortbildung      @relation(fields: [fortbildungId], references: [id], onDelete: Cascade)
+  kompetenz   DigCompKompetenz @relation(fields: [kompetenzCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([fortbildungId, kompetenzCode])
+  @@index([kompetenzCode])
+}
+
+// ---------------------------------------------------------------------------
+// Referenten
+//
+// DSGVO: Das sind die einzigen personenbezogenen Daten des Systems (neben den
+// Redaktions-Accounts). E-Mail und Telefon sind reine Innendaten und werden
+// nie an das öffentliche Frontend ausgeliefert — siehe publicReferentSelect
+// in src/lib/queries.ts.
+// ---------------------------------------------------------------------------
+
+model Referent {
+  id                  String    @id @default(uuid())
+  vorname             String
+  nachname            String
+  /// Stammschule bzw. Organisation
+  organisation        String?
+  /// REFERENT | FACHFUNKTION (Mitglied im Digiteam ohne eigene Fortbildungen)
+  funktion            String    @default("REFERENT")
+  /// Selbst gepflegter Kurztext für die spätere Team-Seite
+  kurzprofil          String?   @db.Text
+  /// Schwerpunkte als Freitext, kommagetrennt. Erscheinen später als Chips
+  schwerpunkte        String?
+  /// Zeitpunkt des letzten Foto-Uploads, zugleich Cache-Schlüssel für
+  /// `/api/portraet/[id]`. Null bedeutet: kein Foto hinterlegt.
+  portraetAm          DateTime? @db.Timestamptz(3)
+  /// Nur intern sichtbar
+  email               String?
+  /// Nur intern sichtbar
+  telefon             String?
+  /// Interne Notiz, nie öffentlich
+  notiz               String?
+  /// Steuert, ob der Name im öffentlichen Frontend erscheint
+  oeffentlichSichtbar Boolean   @default(true)
+  aktiv               Boolean   @default(true)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  /// Verknüpftes Anmeldekonto. Referentinnen und Referenten ohne Konto sind
+  /// weiterhin möglich — sie erscheinen dann nur im Verzeichnis.
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  fortbildungen FortbildungReferent[]
+  umfragen      UmfrageTeilnehmer[]
+  onboarding    ReferentOnboarding?
+
+  @@index([nachname, vorname])
+}
+
+/// Angaben aus dem Onboarding unter der Terminumfrage (Kontaktwege, weitere
+/// Formate). Die Handynummer gibt es nicht doppelt: Das Onboarding liest und
+/// schreibt `Referent.telefon`. Eigene Tabelle, damit diese Angaben nie
+/// versehentlich in Listen, Exporten oder Umfragetabellen landen.
+/// Werteliste in src/constants/onboarding.ts.
+model ReferentOnboarding {
+  referentId     String   @id
+  /// MAIL | TELEFON | MESSENGER (Werteliste in src/constants/onboarding.ts)
+  kontaktwege    String[]
+  weitereFormate Boolean  @default(false)
+  /// z. B. MO_VORMITTAGS, nur gespeichert, wenn weitereFormate
+  zeiten         String[]
+  bemerkung      String?  @db.VarChar(300)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  referent Referent @relation(fields: [referentId], references: [id], onDelete: Cascade)
+
+  @@index([weitereFormate])
+}
+
+model FortbildungReferent {
+  fortbildungId String
+  referentId    String
+  rolle         String? // z. B. "Leitung", "Co-Referent"
+
+  fortbildung Fortbildung @relation(fields: [fortbildungId], references: [id], onDelete: Cascade)
+  referent    Referent    @relation(fields: [referentId], references: [id], onDelete: Cascade)
+
+  @@id([fortbildungId, referentId])
+  @@index([referentId])
+}
+
+// ---------------------------------------------------------------------------
+// FIBS-Import-Protokoll
+// ---------------------------------------------------------------------------
+
+model FibsImportJob {
+  id            String    @id @default(uuid())
+  startedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt    DateTime? @db.Timestamptz(3)
+  status        String    @default("LAEUFT") // LAEUFT | ERFOLG | FEHLER | ABGEBROCHEN
+  dryRun        Boolean   @default(true)
+  suchbegriffe  String[]
+  gefunden      Int       @default(0)
+  neu           Int       @default(0)
+  aktualisiert  Int       @default(0)
+  uebersprungen Int       @default(0)
+  fehlermeldung String?
+  /// Vorschau-Daten des Dry-Runs, damit die Übernahme ohne zweiten Abruf geht
+  rohdaten      Json?
+
+  @@index([startedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Rechenschaftspflicht (Art. 5 Abs. 2 DSGVO)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  at         DateTime @default(now()) @db.Timestamptz(3)
+  userId     String?
+  aktion     String // CREATE | UPDATE | DELETE | LOGIN | LOGIN_FAILED | IMPORT | RETENTION | UPLOAD_ABGELEHNT
+  entitaet   String // "Fortbildung", "Referent", ...
+  entitaetId String?
+  /// Kurzbeschreibung bzw. geänderte Felder — bewusst ohne Volldaten-Kopie
+  details    Json?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([at])
+  @@index([entitaet, entitaetId])
+}
+
+/// Schlüssel-Wert-Speicher für redaktionelle Texte und Betriebs-Marker:
+/// "impressum", "datenschutz", "lastRetentionRun"
+model SystemSetting {
+  id        String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// ---------------------------------------------------------------------------
+// Terminumfrage (nach Art von Doodle). Der Link einer Person ist kein
+// gespeichertes Token, sondern teilnehmerId plus HMAC, siehe
+// src/lib/umfrageToken.ts.
+// ---------------------------------------------------------------------------
+
+model Umfrage {
+  id                   String   @id @default(uuid())
+  titel                String
+  beschreibung         String?  @db.Text
+  ort                  String?
+  /// Freitext, z. B. "14:00 bis 17:00 Uhr"
+  uhrzeit              String?
+  /// OFFEN | GESCHLOSSEN (Werteliste in src/constants/umfrage.ts)
+  status               String   @default("OFFEN")
+  festgelegterTerminId String?
+  erstelltVonId        String?
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(3)
+
+  erstelltVon        User?               @relation(fields: [erstelltVonId], references: [id], onDelete: SetNull)
+  festgelegterTermin UmfrageTermin?      @relation("FestgelegterTermin", fields: [festgelegterTerminId], references: [id], onDelete: SetNull)
+  termine            UmfrageTermin[]     @relation("UmfrageTermine")
+  teilnehmer         UmfrageTeilnehmer[]
+
+  @@index([status])
+}
+
+model UmfrageTermin {
+  id          String   @id @default(uuid())
+  umfrageId   String
+  /// Kalendertag ohne Uhrzeit
+  datum       DateTime @db.Date
+  reihenfolge Int
+
+  umfrage        Umfrage          @relation("UmfrageTermine", fields: [umfrageId], references: [id], onDelete: Cascade)
+  festgelegtFuer Umfrage[]        @relation("FestgelegterTermin")
+  antworten      UmfrageAntwort[]
+
+  @@unique([umfrageId, datum])
+  @@index([umfrageId, reihenfolge])
+}
+
+model UmfrageTeilnehmer {
+  id            String    @id @default(uuid())
+  umfrageId     String
+  referentId    String
+  eingeladenAm  DateTime? @db.Timestamptz(3)
+  erinnertAm    DateTime? @db.Timestamptz(3)
+  geantwortetAm DateTime? @db.Timestamptz(3)
+  /// Kurz, höchstens 300 Zeichen
+  kommentar     String?   @db.VarChar(300)
+
+  umfrage   Umfrage          @relation(fields: [umfrageId], references: [id], onDelete: Cascade)
+  referent  Referent         @relation(fields: [referentId], references: [id], onDelete: Cascade)
+  antworten UmfrageAntwort[]
+
+  @@unique([umfrageId, referentId])
+  @@index([referentId])
+}
+
+model UmfrageAntwort {
+  id           String @id @default(uuid())
+  teilnehmerId String
+  terminId     String
+  /// JA | VIELLEICHT | NEIN (Werteliste in src/constants/umfrage.ts)
+  wert         String
+
+  teilnehmer UmfrageTeilnehmer @relation(fields: [teilnehmerId], references: [id], onDelete: Cascade)
+  termin     UmfrageTermin     @relation(fields: [terminId], references: [id], onDelete: Cascade)
+
+  @@unique([teilnehmerId, terminId])
+  @@index([terminId])
+}

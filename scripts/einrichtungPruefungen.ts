@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { BISHERIGES_SCHULAMT, NEUTRALES_SCHULAMT, SchulamtProfilSchema } from "../src/lib/schulamtProfil";
+import { leseSchulCsv, planeSchulimport, type BestehenderSchulort } from "../src/lib/schulimport";
+
+const kopf = "schulnummer;name;strasse;ort\n";
+const ort: BestehenderSchulort = { id: "schule-1", name: "Grundschule Beispiel", schulnummer: "0012", strasse: "Schulstraße 1", ort: "Beispielstadt", istOnline: false, aktiv: true, _count: { fortbildungen: 3 } };
+assert.equal(SchulamtProfilSchema.parse(BISHERIGES_SCHULAMT).startText, "Suche für das neue Fortbildungsangebot für Grund- und Mittelschulen in Memmingen und dem Unterallgäu.");
+assert.equal(SchulamtProfilSchema.parse({ ...NEUTRALES_SCHULAMT, zielgruppe: "Realschulen", angebotsRegion: "Musterstadt" }).startText, "Suche für das neue Fortbildungsangebot für Realschulen in Musterstadt.");
+assert.deepEqual(SchulamtProfilSchema.parse({ ...NEUTRALES_SCHULAMT, pflichtSchlagworte: ["Medienteam", "medienteam"] }).pflichtSchlagworte, ["Medienteam"]);
+assert.equal(SchulamtProfilSchema.safeParse({ ...NEUTRALES_SCHULAMT, name: "\n" }).success, false);
+assert.equal(SchulamtProfilSchema.safeParse({ ...NEUTRALES_SCHULAMT, kurzname: "Amt\nICS-Zeile" }).success, false);
+assert.equal(SchulamtProfilSchema.safeParse({ ...NEUTRALES_SCHULAMT, pflichtSchlagworte: Array.from({ length: 9 }, (_, i) => `Begriff ${i}`) }).success, false);
+
+const standard = `${kopf}0012;Grundschule Beispiel;Schulstraße 1;Beispielstadt\n`;
+assert.equal(leseSchulCsv(standard).zeilen[0].daten.schulnummer, "0012");
+assert.equal(leseSchulCsv(`\uFEFF${standard.replaceAll("\n", "\r\n")}`).fehler.length, 0);
+assert.equal(leseSchulCsv('ort,name,schulnummer,strasse\nMusterstadt,"Grundschule, Nord",0013,"Schulstraße 2"').zeilen[0].daten.name, "Grundschule, Nord");
+assert.equal(leseSchulCsv(`${kopf};"Grundschule; \"\"Süd\"\"";;Musterstadt`).zeilen[0].daten.name, 'Grundschule; "Süd"');
+assert.equal(leseSchulCsv(`${kopf}0012;Grundschule Beispiel;Schulstraße 1;Beispielstadt\n0012;Andere Schule;;Anderer Ort`).fehler.length, 1);
+assert.equal(leseSchulCsv(`${kopf};Grundschule Beispiel;;Beispielstadt\n;grundschule   beispiel;;BEISPIELSTADT`).fehler.length, 1);
+assert.ok(leseSchulCsv(`${kopf};"Offen;;Musterstadt`).fehler.length);
+assert.ok(leseSchulCsv(`${kopf};"Schule"rest;;Musterstadt`).fehler.length);
+assert.ok(leseSchulCsv(`${kopf};"Schule\nNord";;Musterstadt`).fehler.length);
+assert.ok(leseSchulCsv(`${kopf};Schule;;Musterstadt;Zusatz`).fehler.length);
+assert.ok(leseSchulCsv("name;name;strasse;ort\nSchule;Schule;;Ort").fehler.length);
+assert.ok(leseSchulCsv(`${kopf};Schule;;`).fehler.length);
+assert.ok(leseSchulCsv(`${kopf}${" ".repeat(128_001)}`).fehler.length);
+assert.ok(leseSchulCsv(kopf + Array.from({ length: 501 }, (_, i) => `${i};Schule ${i};;Musterstadt`).join("\n")).fehler.length);
+assert.equal(leseSchulCsv(readFileSync("public/vorlagen/schulen.csv", "utf8")).fehler[0].meldung, "Die Datei enthält noch keine Schulen. Bitte die Vorlage zuerst befüllen.");
+
+assert.equal(planeSchulimport(standard, []).zeilen[0].aktion, "neu");
+assert.equal(planeSchulimport(standard, [ort]).zeilen[0].aktion, "unveraendert");
+const umbenennung = planeSchulimport(`${kopf}0012;Grundschule Neuer Name;;Neustadt`, [ort]);
+assert.equal(umbenennung.zeilen[0].aktion, "aktualisieren");
+assert.equal(umbenennung.zeilen[0].id, ort.id);
+assert.equal(umbenennung.zeilen[0].daten.strasse, "Schulstraße 1");
+const ohneNummer = planeSchulimport(`${kopf};Grundschule Beispiel;;Beispielstadt`, [ort]);
+assert.equal(ohneNummer.zeilen[0].daten.schulnummer, "0012");
+assert.equal(ohneNummer.zeilen[0].aktion, "unveraendert");
+const anreichern = planeSchulimport(standard, [{ ...ort, schulnummer: null }]);
+assert.equal(anreichern.zeilen[0].aktion, "aktualisieren");
+assert.equal(anreichern.zeilen[0].id, ort.id);
+assert.equal(planeSchulimport(standard, [{ ...ort, aktiv: false }]).zeilen[0].vorher?.aktiv, false);
+assert.ok(planeSchulimport(standard, [{ ...ort, istOnline: true }]).fehler.length);
+assert.ok(planeSchulimport(standard, [ort, { ...ort, id: "doppelt" }]).fehler.length);
+assert.ok(planeSchulimport(standard, [{ ...ort, schulnummer: "9999" }]).fehler.length);
+assert.ok(planeSchulimport(`${kopf}0012;Andere Schule;;Anderer Ort`, [ort, { ...ort, id: "anders", name: "Andere Schule", ort: "Anderer Ort", schulnummer: "0013" }]).fehler.length);
+assert.ok(planeSchulimport(`${kopf}0012;Neuer Name;;Neustadt\n;Grundschule Beispiel;;Beispielstadt`, [ort]).fehler.length);
+
+console.log("Einrichtung: Zielgruppentext, Profilvalidierung, CSV-Sonderzeichen, Größenbegrenzung, Dubletten, Schulnummern, Aktualisierung und Bestandsschutz bestanden.");
